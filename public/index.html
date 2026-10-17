@@ -1,0 +1,301 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light">
+<meta name="theme-color" content="#7a1f2b">
+<title>IT Inventory</title>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/app.css">
+<script src="/vendor/jsbarcode/JsBarcode.all.min.js" defer></script>
+<script type="module" src="/app.js"></script>
+</head>
+<body>
+<div id="boot" class="boot">Loading…</div>
+
+<!-- Sign in / first-run setup -->
+<main id="authView" class="auth" hidden>
+  <form id="authForm" class="auth-card" novalidate>
+    <div class="brand"><span class="brand-mark" aria-hidden="true"></span><span id="authOrgName">IT Inventory</span></div>
+    <h1 id="authTitle">Sign in</h1>
+    <p id="authIntro" class="muted" hidden></p>
+    <label class="field" id="displayNameField" hidden><span>Your name</span><input name="display_name" autocomplete="name"></label>
+    <label class="field"><span>Username</span><input name="username" autocomplete="username" autocapitalize="none" spellcheck="false" required></label>
+    <label class="field"><span>Password</span><input name="password" type="password" autocomplete="current-password" required></label>
+    <p class="form-error" id="authError" role="alert"></p>
+    <button class="btn primary block" id="authSubmit">Sign in</button>
+  </form>
+</main>
+
+<div id="mainView" hidden>
+  <header class="topbar">
+    <div class="brand"><span class="brand-mark" aria-hidden="true"></span><span id="orgName">IT Inventory</span></div>
+    <nav class="top-actions">
+      <button class="btn ghost" id="adminBtn" type="button" hidden>Admin</button>
+      <button class="btn ghost" id="accountBtn" type="button"><span id="meName"></span><span class="role-badge" id="meRole"></span></button>
+    </nav>
+  </header>
+
+  <div class="content">
+    <section class="scanbar" aria-label="Scan">
+      <form id="scanForm" class="scan-input">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 5v14M6 5v14M9 5v14M13 5v14M15 5v14M18 5v14M21 5v14" /></svg>
+        <input id="scanInput" placeholder="Scan or type a tag, serial, IMEI or MAC" autocomplete="off" autocapitalize="characters" spellcheck="false" enterkeyhint="search" aria-label="Scan or type a code">
+        <button class="btn" type="submit">Find</button>
+      </form>
+      <div class="scan-buttons">
+        <button class="btn primary tech-only" id="newBtn" type="button">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>New asset
+        </button>
+        <button class="btn" id="cameraBtn" type="button">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 8V5h3M21 8V5h-3M3 16v3h3M21 16v3h-3M7 12h10" /></svg>Camera
+        </button>
+        <label class="btn" id="photoBtn">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z" /><circle cx="12" cy="13" r="3.5" /></svg>Photo
+          <input type="file" accept="image/*" capture="environment" id="photoInput" class="visually-hidden">
+        </label>
+      </div>
+    </section>
+
+    <!-- Audit mode is turned off for now. Remove `hidden` (and the guard in restoreAudit) to bring it back. -->
+    <section class="audit tech-only" id="auditBar" aria-label="Audit" hidden>
+      <div class="audit-head">
+        <label class="switch"><input type="checkbox" id="auditToggle"><span class="switch-track" aria-hidden="true"></span><span>Audit mode</span></label>
+        <input id="auditLocation" list="locationList" placeholder="Room or location you're auditing" aria-label="Audit location">
+        <p class="muted audit-hint" id="auditHint">Scan everything in one room. Each scan marks the asset as seen there.</p>
+      </div>
+      <div id="auditBody" class="audit-body" hidden>
+        <p class="audit-summary" id="auditSummary"></p>
+        <div class="audit-cols">
+          <div><h3>Not scanned yet</h3><ul class="audit-list" id="auditRemaining"></ul></div>
+          <div><h3>Scanned</h3><ul class="audit-list" id="auditScanned"></ul></div>
+        </div>
+        <div class="audit-actions">
+          <button class="btn" id="auditMissingBtn" type="button">Mark unscanned as missing</button>
+          <button class="btn ghost" id="auditEndBtn" type="button">End audit</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="stats" id="stats" aria-label="Filter by status"></section>
+
+    <section class="filters">
+      <input type="search" id="search" placeholder="Search hostname, user, model, serial…" aria-label="Search">
+      <select id="categoryFilter" aria-label="Category"></select>
+      <select id="locationFilter" aria-label="Location"></select>
+      <button class="chip" id="warrantyChip" type="button" aria-pressed="false" hidden>Warranty ends within 90 days</button>
+      <span class="spacer"></span>
+      <button class="btn" id="printListBtn" type="button" hidden>Print labels</button>
+      <label class="btn tech-only" id="importBtn">Import CSV<input type="file" id="importInput" accept=".csv,text/csv" class="visually-hidden"></label>
+      <a class="btn" id="exportBtn" href="/api/assets/export.csv" download>Export CSV</a>
+    </section>
+
+    <p class="result-count" id="resultCount"></p>
+    <div class="table-wrap">
+      <table class="grid">
+        <thead>
+          <tr>
+            <th><button type="button" data-sort="tag">Tag</button></th>
+            <th><button type="button" data-sort="name">Asset</button></th>
+            <th><button type="button" data-sort="assignee">User</button></th>
+            <th><button type="button" data-sort="location">Location</button></th>
+            <th><button type="button" data-sort="serial">Serial</button></th>
+            <th><button type="button" data-sort="last_seen_at">Last seen</button></th>
+          </tr>
+        </thead>
+        <tbody id="rows"></tbody>
+      </table>
+      <div class="empty" id="empty" hidden></div>
+      <button class="btn block" id="moreBtn" type="button" hidden>Show more</button>
+    </div>
+  </div>
+</div>
+
+<datalist id="locationList"></datalist>
+<datalist id="assigneeList"></datalist>
+
+<!-- Asset detail / edit -->
+<dialog id="assetDialog" class="sheet" aria-labelledby="sheetTitle">
+  <form id="assetForm" novalidate>
+    <header class="sheet-head">
+      <button type="button" class="btn ghost back-btn" data-close>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6" /></svg>All assets
+      </button>
+      <div class="sheet-heading">
+        <span class="tag-chip" id="sheetTag"></span>
+        <h2 id="sheetTitle"></h2>
+        <p class="muted" id="sheetMeta"></p>
+      </div>
+      <button type="button" class="icon-btn close-btn" data-close aria-label="Close">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" /></svg>
+      </button>
+    </header>
+    <div class="sheet-body">
+      <div class="notice" id="sheetNotice" hidden></div>
+      <div class="quick-actions tech-only" id="quickActions">
+        <button type="button" class="btn" data-action="checkout">In use</button>
+        <button type="button" class="btn" data-action="checkin">Check in…</button>
+        <button type="button" class="btn" data-action="seen">Mark seen</button>
+        <button type="button" class="btn" data-action="repair">Send to repair…</button>
+        <button type="button" class="btn" data-action="missing">Mark missing…</button>
+        <button type="button" class="btn" data-action="found">Found it</button>
+        <button type="button" class="btn" data-action="retire">Retire…</button>
+        <button type="button" class="btn" data-action="dispose">Dispose…</button>
+      </div>
+      <div id="formFields"></div>
+      <section class="panel" id="labelPanel">
+        <h3>Label</h3>
+        <div class="label-preview"><img id="labelPreview" alt="Barcode label preview"></div>
+        <div class="row-buttons">
+          <button type="button" class="btn" id="printOneBtn">Print label</button>
+          <button type="button" class="btn ghost" id="downloadLabelBtn">Download PNG</button>
+        </div>
+      </section>
+      <section class="panel" id="historyPanel">
+        <h3>History</h3>
+        <ol class="history" id="history"></ol>
+      </section>
+      <section class="panel danger admin-only" id="dangerPanel">
+        <h3>Delete asset</h3>
+        <p class="muted">Deleting removes the asset and its history for good. To keep the record, retire or dispose of it instead.</p>
+        <button type="button" class="btn danger" id="deleteBtn">Delete asset</button>
+      </section>
+    </div>
+    <footer class="sheet-foot">
+      <p class="form-error" id="assetError" role="alert"></p>
+      <button type="button" class="btn ghost" data-close>Close</button>
+      <button class="btn primary tech-only" id="saveBtn">Save</button>
+    </footer>
+  </form>
+</dialog>
+
+<!-- Inputs for a quick action -->
+<dialog id="actionDialog" class="modal" aria-labelledby="actionTitle">
+  <form id="actionForm" novalidate>
+    <h2 id="actionTitle"></h2>
+    <label class="field" data-for="assignee"><span>User</span><input name="assignee" list="assigneeList" autocomplete="off"></label>
+    <label class="field" data-for="location"><span>Location (optional)</span><input name="location" list="locationList" autocomplete="off"></label>
+    <label class="field"><span>Note (optional)</span><input name="note" maxlength="500" autocomplete="off"></label>
+    <p class="form-error" id="actionError" role="alert"></p>
+    <div class="modal-foot">
+      <button type="button" class="btn ghost" data-close>Cancel</button>
+      <button class="btn primary" id="actionSubmit">Confirm</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- Live camera -->
+<dialog id="cameraDialog" class="camera" aria-label="Camera scanner">
+  <div class="camera-stage">
+    <video playsinline muted></video>
+    <div class="reticle" aria-hidden="true"></div>
+    <p class="camera-title" data-title></p>
+    <p class="camera-last" data-last hidden></p>
+    <p class="camera-status" data-status role="status"></p>
+  </div>
+  <div class="camera-controls">
+    <button type="button" class="btn" data-torch aria-pressed="false" hidden>Light</button>
+    <button type="button" class="btn primary" data-close>Done</button>
+  </div>
+</dialog>
+
+<!-- Label printing -->
+<dialog id="labelDialog" class="modal" aria-labelledby="labelDialogTitle">
+  <form id="labelForm" novalidate>
+    <h2 id="labelDialogTitle">Print labels</h2>
+    <p class="muted" id="labelCount"></p>
+    <label class="field"><span>Label size</span>
+      <select name="size">
+        <option value="2.25x1.25">2.25 × 1.25 in (Dymo 30334, Zebra)</option>
+        <option value="2x1">2 × 1 in</option>
+        <option value="1.5x1">1.5 × 1 in</option>
+        <option value="3x2">3 × 2 in</option>
+        <option value="4x2">4 × 2 in</option>
+        <option value="62x29mm">62 × 29 mm (Brother DK-1209)</option>
+      </select>
+    </label>
+    <label class="check"><input type="checkbox" name="showName" checked> Show hostname</label>
+    <p class="muted small">In the print dialog, choose your label printer and set margins to none.</p>
+    <div class="modal-foot">
+      <button type="button" class="btn ghost" data-close>Cancel</button>
+      <button class="btn primary">Print</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- Account -->
+<dialog id="accountDialog" class="modal" aria-labelledby="accountTitle">
+  <form id="passwordForm" novalidate>
+    <h2 id="accountTitle">Your account</h2>
+    <p class="muted" id="accountWho"></p>
+    <h3>Change password</h3>
+    <label class="field"><span>Current password</span><input name="current" type="password" autocomplete="current-password"></label>
+    <label class="field"><span>New password (10+ characters)</span><input name="next" type="password" autocomplete="new-password" minlength="10"></label>
+    <p class="form-error" id="passwordError" role="alert"></p>
+    <div class="modal-foot">
+      <button type="button" class="btn danger-ghost" id="logoutBtn">Sign out</button>
+      <span class="spacer"></span>
+      <button type="button" class="btn ghost" data-close>Close</button>
+      <button class="btn primary">Change password</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- Admin -->
+<dialog id="adminDialog" class="sheet wide" aria-labelledby="adminTitle">
+  <div class="sheet-head">
+    <div class="sheet-heading"><h2 id="adminTitle">Admin</h2></div>
+    <button type="button" class="icon-btn" data-close aria-label="Close">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" /></svg>
+    </button>
+  </div>
+  <div class="tabs" role="tablist">
+    <button type="button" role="tab" aria-selected="true" data-tab="users">Team members</button>
+    <button type="button" role="tab" aria-selected="false" data-tab="categories">Categories</button>
+  </div>
+  <div class="sheet-body">
+    <section data-panel="users">
+      <p class="muted small">Viewers can look things up. Technicians can add, edit, scan and audit. Administrators also manage people and categories, and can delete assets.</p>
+      <table class="mini-table"><thead><tr><th>Name</th><th>Username</th><th>Role</th><th>Active</th><th></th></tr></thead><tbody id="userRows"></tbody></table>
+      <form id="addUserForm" class="inline-form" novalidate>
+        <h3>Add a team member</h3>
+        <div class="form-grid">
+          <label class="field"><span>Name</span><input name="name" required autocomplete="off"></label>
+          <label class="field"><span>Username</span><input name="username" required autocapitalize="none" spellcheck="false" autocomplete="off"></label>
+          <label class="field"><span>Role</span><select name="role"><option value="tech">Technician</option><option value="viewer">Viewer</option><option value="admin">Administrator</option></select></label>
+          <label class="field"><span>Temporary password</span><input name="password" type="text" required minlength="10" autocomplete="off" spellcheck="false"></label>
+        </div>
+        <p class="form-error" id="addUserError" role="alert"></p>
+        <button class="btn primary">Add team member</button>
+      </form>
+    </section>
+    <section data-panel="categories" hidden>
+      <p class="muted small">The device type decides which extra fields an asset shows: hostname and IP for computers and network gear, IMEI and phone number for mobile devices.</p>
+      <table class="mini-table"><thead><tr><th>Category</th><th>Device type</th><th>Assets</th><th></th></tr></thead><tbody id="categoryRows"></tbody></table>
+      <form id="addCategoryForm" class="inline-form" novalidate>
+        <h3>Add a category</h3>
+        <div class="form-grid">
+          <label class="field"><span>Name</span><input name="name" required autocomplete="off"></label>
+          <label class="field"><span>Device type</span><select name="kind" id="newCategoryKind"></select></label>
+        </div>
+        <p class="form-error" id="addCategoryError" role="alert"></p>
+        <button class="btn primary">Add category</button>
+      </form>
+    </section>
+  </div>
+</dialog>
+
+<!-- Import results -->
+<dialog id="infoDialog" class="modal" aria-labelledby="infoTitle">
+  <form method="dialog">
+    <h2 id="infoTitle"></h2>
+    <div id="infoBody"></div>
+    <div class="modal-foot"><button class="btn primary">OK</button></div>
+  </form>
+</dialog>
+
+<div id="printArea"></div>
+<div id="toasts" class="toasts" role="status" aria-live="polite"></div>
+</body>
+</html>

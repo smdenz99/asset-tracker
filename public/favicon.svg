@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <!-- Quaker: broad-brimmed hat, plain coat and white collar -->
+  <path d="M4 32c.6-5.6 5-8.6 12-8.6S27.4 26.4 28 32z" fill="#7a1f2b"/>
+  <path d="M12.3 23.6 16 28.2l3.7-4.6z" fill="#ffffff"/>
+  <path d="M10.4 15.2c-.7 2.6-.3 5.2 1.3 6.6M21.6 15.2c.7 2.6.3 5.2-1.3 6.6" stroke="#5a3a26" stroke-width="1.7" fill="none" stroke-linecap="round"/>
+  <circle cx="16" cy="17.6" r="5.8" fill="#f2d3b6"/>
+  <circle cx="13.9" cy="17.4" r=".8" fill="#3a2a20"/>
+  <circle cx="18.1" cy="17.4" r=".8" fill="#3a2a20"/>
+  <path d="M13.9 20.2c1.2 1 3 1 4.2 0" stroke="#3a2a20" stroke-width=".9" fill="none" stroke-linecap="round"/>
+  <path d="M10.2 4.6c0-1.2.9-2.1 2.1-2.1h7.4c1.2 0 2.1.9 2.1 2.1V12.4H10.2z" fill="#7a1f2b"/>
+  <rect x="10.2" y="9.3" width="11.6" height="1.9" fill="#3d0f15"/>
+  <ellipse cx="16" cy="12.8" rx="13.6" ry="2.4" fill="#7a1f2b"/>
+</svg>
