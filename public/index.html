@@ -82,6 +82,7 @@
 
     <section class="filters">
       <input type="search" id="search" placeholder="Search hostname, user, model, serial…" aria-label="Search">
+      <select id="statusFilter" aria-label="Status"></select>
       <select id="categoryFilter" aria-label="Category"></select>
       <select id="locationFilter" aria-label="Location"></select>
       <button class="chip" id="warrantyChip" type="button" aria-pressed="false" hidden>Warranty ends within 90 days</button>
@@ -142,6 +143,7 @@
         <button type="button" class="btn" data-action="found">Found it</button>
         <button type="button" class="btn" data-action="retire">Retire…</button>
         <button type="button" class="btn" data-action="dispose">Dispose…</button>
+        <button type="button" class="btn" id="copyBtn" title="Start a new asset with this one's details">Copy asset</button>
       </div>
       <div id="formFields"></div>
       <section class="panel" id="labelPanel">

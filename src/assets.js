@@ -78,8 +78,7 @@ export function createAssetStore(db) {
         const n = Number(String(raw).replace(/[$,\s]/g, ''));
         if (!Number.isFinite(n) || n < 0) throw new HttpError(400, `${field.label} must be a positive number`);
         return Math.round(n * 100) / 100;
-      }
-    }
+      }    }
     let s = String(raw).replace(CONTROL_CHARS, '').trim();
     if (key !== 'notes') s = s.replace(/\s+/g, ' ');
     const max = field.max ?? 200;
