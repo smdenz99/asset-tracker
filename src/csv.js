@@ -94,7 +94,7 @@ const HEADER_MAP = (() => {
 
 const STATUS_WORDS = {
   in_use: ['inuse', 'assigned', 'deployed', 'active', 'checkedout', 'inservice'],
-  in_stock: ['instock', 'stock', 'spare', 'available', 'storage', 'checkedin', 'unassigned', 'new'],
+  in_stock: ['instock', 'stock', 'spare', 'available', 'storage', 'checkedin', 'unassigned', 'new', 'ready'],
   repair: ['inrepair', 'repair', 'broken', 'rma', 'faulty', 'damaged'],
   lost: ['missing', 'lost', 'stolen'],
   retired: ['retired', 'eol', 'decommissioned', 'inactive'],

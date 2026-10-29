@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 export const STATUSES = {
-  in_stock: 'In stock',
+  in_stock: 'Ready to deploy',
   in_use: 'In use',
   repair: 'In repair',
   lost: 'Missing',
@@ -44,6 +44,8 @@ export const FIELDS = [
   { key: 'switch_name', label: 'Switch', section: 'network', kinds: ['computer', 'network'], mono: true },
   { key: 'switch_port', label: 'Port #', section: 'network', kinds: ['computer', 'network'], mono: true, max: 40 },
   { key: 'mac_address', label: 'MAC address', section: 'network', kinds: ['computer', 'network'], scan: true, mono: true },
+  // Shown only for these category names, not for every category of a kind.
+  { key: 'daisy_chained', label: 'Daisy chained', section: 'network', mono: true, categories: ['desk phone'] },
   { key: 'purchase_date', label: 'Purchase date', section: 'purchase', type: 'date' },
   { key: 'warranty_end', label: 'Warranty ends', section: 'purchase', type: 'date' },
   { key: 'cost', label: 'Cost', section: 'purchase', type: 'number' },
@@ -148,6 +150,9 @@ const MIGRATIONS = [
   },
   (db) => {
     db.exec('ALTER TABLE assets ADD COLUMN implementation_date TEXT');
+  },
+  (db) => {
+    db.exec('ALTER TABLE assets ADD COLUMN daisy_chained TEXT');
   },
 ];
 

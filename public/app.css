@@ -129,7 +129,7 @@ input.mono { font-family: var(--mono); }
   padding: 28px; background: var(--surface); border: 1px solid var(--border); border-radius: 14px; box-shadow: var(--shadow);
 }
 .brand { display: flex; align-items: center; gap: 10px; font-weight: 750; letter-spacing: -0.01em; }
-.brand-mark { width: 34px; height: 34px; flex: none; background: url("/favicon.svg") center / contain no-repeat; }
+.brand-mark { width: 34px; height: 34px; flex: none; border-radius: 8px; background: #fff url("/quaker.png") center / contain no-repeat; }
 
 /* ------------------------------------------------ Layout */
 

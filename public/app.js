@@ -318,11 +318,15 @@ async function applyRemoteChanges() {
 
 // ---------------------------------------------------------------- Register
 
+// Category filter value for assets with no category. Real values are numeric IDs.
+const UNCATEGORIZED = 'none';
+
 function renderCategoryFilter() {
   const sel = $('#categoryFilter');
   const current = sel.value;
-  sel.replaceChildren(new Option('All categories', ''), ...state.meta.categories.map((c) => new Option(c.name, c.id)));
-  sel.value = state.meta.categories.some((c) => String(c.id) === current) ? current : '';
+  sel.replaceChildren(new Option('All categories', ''),
+    ...state.meta.categories.map((c) => new Option(c.name, c.id)), new Option('Uncategorized', UNCATEGORIZED));
+  sel.value = current === UNCATEGORIZED || state.meta.categories.some((c) => String(c.id) === current) ? current : '';
   state.filter.category = sel.value;
 }
 
@@ -340,7 +344,7 @@ function filteredAssets() {
   const terms = q.toLowerCase().split(/\s+/).filter(Boolean);
   const list = state.assets.filter((a) => {
     if (status && a.status !== status) return false;
-    if (category && String(a.category_id) !== category) return false;
+    if (category === UNCATEGORIZED ? a.category_id != null : category && String(a.category_id) !== category) return false;
     if (location && a.location !== location) return false;
     if (warranty) {
       const d = daysUntil(a.warranty_end);
@@ -358,7 +362,18 @@ function filteredAssets() {
   });
 }
 
+// Covers every status, including ones without a counter on the main page.
+function renderStatusFilter() {
+  const sel = $('#statusFilter');
+  if (!sel.options.length) {
+    sel.replaceChildren(new Option('All statuses', ''),
+      ...Object.entries(state.meta.statuses).map(([key, label]) => new Option(label, key)));
+  }
+  sel.value = state.filter.status;
+}
+
 function renderStats() {
+  renderStatusFilter();
   const counts = {};
   for (const a of state.assets) counts[a.status] = (counts[a.status] ?? 0) + 1;
   const chip = (value, label, count, tone) => `
@@ -419,6 +434,11 @@ $('#search').addEventListener('input', (e) => {
   state.limit = PAGE;
   renderRegister();
 });
+$('#statusFilter').addEventListener('change', (e) => {
+  state.filter.status = e.target.value;
+  state.limit = PAGE;
+  renderRegister();
+});
 $('#categoryFilter').addEventListener('change', (e) => { state.filter.category = e.target.value; renderRegister(); });
 $('#locationFilter').addEventListener('change', (e) => { state.filter.location = e.target.value; renderRegister(); });
 $('#warrantyChip').addEventListener('click', (e) => {
@@ -476,8 +496,7 @@ function buildAssetForm() {
       case 'number':
         return `<input type="number" name="${f.key}" min="0" step="0.01" inputmode="decimal">`;
       case 'textarea':
-        return `<textarea name="${f.key}" rows="3" maxlength="${f.max}"></textarea>`;
-    }
+        return `<textarea name="${f.key}" rows="3" maxlength="${f.max}"></textarea>`;    }
     const list = f.key === 'location' ? ' list="locationList"' : f.key === 'assignee' ? ' list="assigneeList"' : '';
     const plain = f.mono || f.key === 'tag' ? ' autocapitalize="none" spellcheck="false"' : '';
     const input = `<input name="${f.key}" class="${mono}" maxlength="${f.max ?? 200}" autocomplete="off"${list}${plain}>`;
@@ -494,7 +513,7 @@ function buildAssetForm() {
     return `<fieldset class="form-section">
       ${title ? `<legend>${title}</legend>` : ''}
       <div class="form-grid">${inSection.map((f) => `
-        <label class="field ${f.type === 'textarea' ? 'span-2' : ''}" data-field="${f.key}" ${f.kinds ? `data-kinds="${f.kinds.join(' ')}"` : ''}>
+        <label class="field ${f.type === 'textarea' ? 'span-2' : ''}" data-field="${f.key}" ${f.kinds ? `data-kinds="${f.kinds.join(' ')}"` : ''} ${f.categories ? `data-categories="${esc(f.categories.join('|'))}"` : ''}>
           <span>${esc(f.label)}</span>${control(f)}
         </label>`).join('')}
       </div>
@@ -511,13 +530,28 @@ function formInput(key) {
   return $('#assetForm').elements.namedItem(key);
 }
 
+// Categories where "Hostname" doesn't fit, keyed by lowercase category name.
+const NAME_LABELS = {
+  'desk phone': 'Extension number',
+  monitor: 'Name',
+};
+
 // Device-specific fields only show for matching categories, unless they
 // already hold a value.
 function applyKindVisibility() {
   const catId = formInput('category_id').value;
-  const kind = state.meta.categories.find((c) => String(c.id) === catId)?.kind ?? 'other';
+  const category = state.meta.categories.find((c) => String(c.id) === catId);
+  const kind = category?.kind ?? 'other';
+  const nameLabel = state.meta.fields.find((f) => f.key === 'name').label;
+  $('#formFields [data-field="name"] > span').textContent =
+    NAME_LABELS[category?.name.toLowerCase()] ?? nameLabel;
   $$('#formFields [data-kinds]').forEach((label) => {
     const show = label.dataset.kinds.split(' ').includes(kind) || formInput(label.dataset.field).value !== '';
+    label.hidden = !show;
+  });
+  $$('#formFields [data-categories]').forEach((label) => {
+    const show = label.dataset.categories.split('|').includes(category?.name.toLowerCase())
+      || formInput(label.dataset.field).value !== '';
     label.hidden = !show;
   });
   // Hide a whole section when none of its fields apply (e.g. Network info for a monitor).
@@ -800,6 +834,18 @@ $('#deleteBtn').addEventListener('click', async () => {
 // ---------------------------------------------------------------- Quick actions
 
 let pendingAction = null;
+
+// A copy keeps every field except the asset tag, which must be unique.
+$('#copyBtn').addEventListener('click', async () => {
+  const source = state.current.asset;
+  const prefill = Object.fromEntries(formFields()
+    .filter((f) => f.key !== 'tag')
+    .map((f) => [f.key, source[f.key]]));
+  await openNew(prefill);
+  if (state.current.asset) return; // the user kept their unsaved edits instead
+  state.dirty = true; // closing now would throw the copied details away
+  showNotice(`Copied from ${source.tag}. Scan or enter the new asset tag.`);
+});
 
 $('#quickActions').addEventListener('click', async (e) => {
   const action = e.target.closest('[data-action]')?.dataset.action;
